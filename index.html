@@ -1,0 +1,140 @@
+<!doctype html>
+<html>
+<head>
+    <script src="https://aframe.io/releases/1.0.4/aframe.min.js"></script>
+    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+    <script src="https://raw.githack.com/AR-js-org/studio-backend/master/src/modules/marker/tools/gesture-detector.js"></script>
+    <script src="https://raw.githack.com/AR-js-org/studio-backend/master/src/modules/marker/tools/gesture-handler.js"></script>
+    <script>
+        AFRAME.registerComponent('marker-priority-manager', {
+            init: function () {
+                this.markers = Array.from(document.querySelectorAll('a-marker'));
+                this.visibleMarkers = new Set();
+                this.camera = document.querySelector('a-entity[camera]');
+                this.centerPoint = new THREE.Vector2(0, 0);
+                this.currentlyPlaying = null;
+
+                this.markers.forEach(marker => {
+                    const videoEntity = marker.querySelector('a-video');
+                    if (videoEntity) {
+                        videoEntity.object3D.visible = false;
+                    }
+                });
+
+                const onMarkerFound = (e) => {
+                    this.visibleMarkers.add(e.target);
+                    this.updatePrioritizedVideo();
+                };
+
+                const onMarkerLost = (e) => {
+                    this.visibleMarkers.delete(e.target);
+                    if (this.currentlyPlaying === e.target) {
+                        this.hideVideo(e.target);
+                        this.currentlyPlaying = null;
+                    }
+                    this.updatePrioritizedVideo();
+                };
+
+                this.markers.forEach(marker => {
+                    marker.addEventListener('markerFound', onMarkerFound);
+                    marker.addEventListener('markerLost', onMarkerLost);
+                });
+            },
+
+            tick: function() {
+                this.updatePrioritizedVideo();
+            },
+
+            updatePrioritizedVideo: function () {
+                if (this.visibleMarkers.size === 0) {
+                    if (this.currentlyPlaying) {
+                        this.hideVideo(this.currentlyPlaying);
+                        this.currentlyPlaying = null;
+                    }
+                    return;
+                }
+
+                let centerMarker = null;
+                let minDistance = Infinity;
+                const threeCamera = this.camera.getObject3D('camera');
+                const markerWorldPosition = new THREE.Vector3();
+
+                this.visibleMarkers.forEach(marker => {
+                    marker.object3D.getWorldPosition(markerWorldPosition);
+                    const screenPosition = markerWorldPosition.clone().project(threeCamera);
+                    const distance = new THREE.Vector2(screenPosition.x, screenPosition.y).distanceTo(this.centerPoint);
+
+                    if (distance < minDistance) {
+                        minDistance = distance;
+                        centerMarker = marker;
+                    }
+                });
+
+                if (centerMarker && centerMarker !== this.currentlyPlaying) {
+
+                    if (this.currentlyPlaying) {
+                        this.hideVideo(this.currentlyPlaying);
+                    }
+
+                    this.showVideo(centerMarker);
+                    this.currentlyPlaying = centerMarker;
+                }
+            },
+
+            showVideo: function(marker) {
+                const videoEntity = marker.querySelector('a-video');
+                const videoAsset = document.querySelector(videoEntity.getAttribute('src'));
+                if (videoEntity && videoAsset) {
+                    videoEntity.object3D.visible = true;
+                    videoAsset.play();
+                }
+            },
+
+            hideVideo: function(marker) {
+                const videoEntity = marker.querySelector('a-video');
+                const videoAsset = document.querySelector(videoEntity.getAttribute('src'));
+                if (videoEntity && videoAsset) {
+                    videoEntity.object3D.visible = false;
+                    videoAsset.pause();
+                }
+            }
+        });
+    </script>
+</head>
+<body style="margin: 0; overflow: hidden;">
+    <a-scene
+        vr-mode-ui="enabled: false"
+        loading-screen="enabled: false;"
+        arjs='sourceType: webcam; debugUIEnabled: false;'
+        id="scene"
+        embedded
+        gesture-detector
+        marker-priority-manager
+    >
+        <a-assets>
+            <video id="vid" src="assets/asset1.mp4" preload="auto" response-type="arraybuffer" loop crossorigin webkit-playsinline autoplay playsinline muted></video>
+            <video id="vid2" src="assets/asset2.mp4" preload="auto" response-type="arraybuffer" loop crossorigin webkit-playsinline autoplay playsinline muted></video>
+            <video id="vid3" src="assets/asset3.mp4" preload="auto" response-type="arraybuffer" loop crossorigin webkit-playsinline autoplay playsinline muted></video>
+            <video id="vid4" src="assets/asset4.mp4" preload="auto" response-type="arraybuffer" loop crossorigin webkit-playsinline autoplay playsinline muted></video>
+        </a-assets>
+
+        <a-marker type="pattern" preset="custom" url="assets/marker.patt" smooth="true" smoothCount="10" smoothTolerance="0.01" smoothThreshold="5" raycaster="objects: .clickable" emitevents="true" cursor="fuse: false; rayOrigin: mouse;" id="markerA">
+            <a-video src="#vid" scale="1.6 0.9 1" position="0 0.1 0" rotation="-90 0 0" class="clickable" gesture-handler></a-video>
+        </a-marker>
+
+        <a-marker type="pattern" preset="custom" url="assets/markerB.patt" smooth="true" smoothCount="10" smoothTolerance="0.01" smoothThreshold="5" raycaster="objects: .clickable" emitevents="true" cursor="fuse: false; rayOrigin: mouse;" id="markerB">
+            <a-video src="#vid2" scale="1.6 0.9 1" position="0 0.1 0" rotation="-90 0 0" class="clickable" gesture-handler></a-video>
+        </a-marker>
+
+        <a-marker type="pattern" preset="custom" url="assets/markerC.patt" smooth="true" smoothCount="10" smoothTolerance="0.01" smoothThreshold="5" raycaster="objects: .clickable" emitevents="true" cursor="fuse: false; rayOrigin: mouse;" id="markerC">
+            <a-video src="#vid3" scale="1.6 0.9 1" position="0 0.1 0" rotation="-90 0 0" class="clickable" gesture-handler></a-video>
+        </a-marker>
+
+        <a-marker type="pattern" preset="custom" url="assets/markerD.patt" smooth="true" smoothCount="10" smoothTolerance="0.01" smoothThreshold="5" raycaster="objects: .clickable" emitevents="true" cursor="fuse: false; rayOrigin: mouse;" id="markerD">
+            <a-video src="#vid4" scale="1.6 0.9 1" position="0 0.1 0" rotation="-90 0 0" class="clickable" gesture-handler></a-video>
+        </a-marker>
+
+        <a-entity camera></a-entity>
+    </a-scene>
+</body>
+</html>
